@@ -1,24 +1,34 @@
 #include <Servo.h>
 
-const int SERVO_PIN = 7;          // should be MEGA's PIN "PWM7"
-const int min_pulse_width = 1040;  // µs
-const int max_pulse_width = 1820;  // µs
+// serial output
+const int baud_rate = 9600;
 
-Servo myservo;
-int servo_angle = 90;
+// steering
+const int servo_pin= 7;          // should be MEGA's pin "PWM7"
+Servo steering_servo;
+// use calibration sketch to get these
+const int min_pulse_width = 1000;
+const int max_pulse_width = 2000;
+
+// program state
 bool increase_angle = true;
+int servo_angle = 0;
 
 void setup()
 {
-  Serial.begin(9600);
+  // I/O
+  Serial.begin(baud_rate);
+
+  // steering
   Serial.println("Setting up servo");
-  myservo.attach(SERVO_PIN, min_pulse_width, max_pulse_width);
-  Serial.print("Servo attached to PIN");
-  Serial.println(SERVO_PIN);
+  steering_servo.attach(servo_pin, min_pulse_width, max_pulse_width);
+  Serial.print("Servo attached to PIN ");
+  Serial.println(servo_pin);
 }
 
 void loop()
 {
+  // steering servo
   const int angle_increment = 1;
   const int delay_duration = 15;
 
@@ -45,11 +55,6 @@ void loop()
   Serial.print(servo_angle);
   Serial.println(" degree");
 
-  myservo.write(servo_angle);
-
-  Serial.print("Reading servo angle: ");
-  Serial.print(myservo.read());
-  Serial.println(" degree");
-
+  // delay
   delay(delay_duration);
 }
