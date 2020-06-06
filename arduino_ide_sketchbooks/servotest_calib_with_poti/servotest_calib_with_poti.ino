@@ -43,8 +43,8 @@ void loop()
   Serial.println();
 
   // find corresponding value in [min_pulse_width, max_pulse_width]
-  int value_range = max_pulse_width - min_pulse_width;
-  int target_pulse_width = min_pulse_width + static_cast<int>(static_cast<float>(value_range) * potentiometer_ratio + 0.5f);
+  const int value_range = max_pulse_width - min_pulse_width;
+  const int target_pulse_width = min_pulse_width + static_cast<int>(static_cast<float>(value_range) * potentiometer_ratio + 0.5f);
   // output to serial and servo
   Serial.print("setting target pulse width: ");
   Serial.print(target_pulse_width);
