@@ -1,4 +1,5 @@
 #include <Servo.h>
+#include "drive_state.h"
 
 int mapRatioOnIntRange(float ratio, int min, int max)
 {
@@ -21,29 +22,19 @@ const int pulse_width_max_speed_forward = 2000;
 
 // speed at which state changes
 const float speed_percentage_increment = 0.01;
-const int delay_duration = 15;
-const int stop_duration = 50;
+const int delay_duration = 50;
+const int stop_duration = 200;
 
-// program state
-enum DriveState
-{
-  Stop = 0,
-  Forward = 1,
-  Backward = 2,
-};
-
-DriveState current_drive_state = DriveState::Stop;
-DriveState next_drive_state = DriveState::Forward;
-bool speed_increase = false;
-float current_speed = 0.0;
-int stop_counter = 0;
+DriveState current_drive_state = DriveState::StopAfterBackwardMovement;
+float current_speed = 0.0; // speed between 0 and 1, gets mapped on min/max speed values
+int stop_counter = 0; // counter used to standstill for a defined duration
 
 void setup()
 {
   // I/O
   Serial.begin(baud_rate);
 
-  // steering
+  // motor output
   Serial.println("Setting up motor");
   motor_controller.attach(motor_pin);
   motor_controller.writeMicroseconds(pulse_width_stop);
@@ -53,61 +44,57 @@ void setup()
 
 void loop()
 {
-  int motor_pulse_width;
+  int motor_pulse_width = pulse_width_stop; // will be overwritten later
 
   switch (current_drive_state)
   {
-  case DriveState::Stop:
+  case DriveState::StopAfterBackwardMovement:
+  case DriveState::StopAfterForwardMovement:
     motor_pulse_width = pulse_width_stop;
     stop_counter += 1;
     if (stop_counter > stop_duration)
     {
-      current_drive_state = next_drive_state;
+      current_drive_state = transition(current_drive_state);
+      stop_counter = 0;
     }
     break;
-  case DriveState::Forward:
-    if (speed_increase)
+
+  case DriveState::ForwardAccelerate:
+    current_speed += speed_percentage_increment;
+    if (current_speed >= 1.0f)
     {
-      current_speed += speed_increase;
-      if (current_speed >= 1.0f)
-      {
-        current_speed = 1.0f;
-        speed_increase = false;
-      }
-    }
-    else
-    {
-      current_speed -= speed_increase;
-      if (current_speed <= 0.0f)
-      {
-        current_speed = 0.0f;
-        speed_increase = true;
-        next_drive_state = DriveState::Backward;
-        current_drive_state = DriveState::Stop;
-      }
+      current_speed = 1.0f;
+      current_drive_state = transition(current_drive_state);
     }
     motor_pulse_width = mapRatioOnIntRange(current_speed, pulse_width_stop, pulse_width_max_speed_forward);
     break;
-  case DriveState::Backward:
-    if (speed_increase)
+
+  case DriveState::ForwardDecelerate:
+    current_speed -= speed_percentage_increment;
+    if (current_speed <= 0.0f)
     {
-      current_speed += speed_increase;
-      if (current_speed >= 1.0f)
-      {
-        current_speed = 1.0f;
-        speed_increase = false;
-      }
+      current_speed = 0.0f;
+      current_drive_state = transition(current_drive_state);
     }
-    else
+    motor_pulse_width = mapRatioOnIntRange(current_speed, pulse_width_stop, pulse_width_max_speed_forward);
+    break;
+
+  case DriveState::BackwardAccelerate:
+    current_speed += speed_percentage_increment;
+    if (current_speed >= 1.0f)
     {
-      current_speed -= speed_increase;
-      if (current_speed <= 0.0f)
-      {
-        current_speed = 0.0f;
-        speed_increase = true;
-        next_drive_state = DriveState::Forward;
-        current_drive_state = DriveState::Stop;
-      }
+      current_speed = 1.0f;
+      current_drive_state = transition(current_drive_state);
+    }
+    motor_pulse_width = mapRatioOnIntRange(1.0f - current_speed, pulse_width_max_speed_backwards, pulse_width_stop);
+    break;
+
+  case DriveState::BackwardDecelerate:
+    current_speed -= speed_percentage_increment;
+    if (current_speed <= 0.0f)
+    {
+      current_speed = 0.0f;
+      current_drive_state = transition(current_drive_state);
     }
     motor_pulse_width = mapRatioOnIntRange(1.0f - current_speed, pulse_width_max_speed_backwards, pulse_width_stop);
     break;
